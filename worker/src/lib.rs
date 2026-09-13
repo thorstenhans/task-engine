@@ -55,7 +55,6 @@ async fn cleanup_and_generate_report() -> anyhow::Result<domain::Report> {
         .filter(|k| k.starts_with(KEY_TASK_PREFIX));
 
     for key in task_keys {
-        // With the `json` feature we skip manual (de)serialization.
         let Some(task): Option<Value> = store.get_json(&key).await? else {
             continue;
         };

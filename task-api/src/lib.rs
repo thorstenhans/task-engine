@@ -1,3 +1,4 @@
+use std::sync::Once;
 use anyhow::bail;
 use axum::Router;
 use axum::routing::{get, post};
@@ -18,8 +19,6 @@ mod service;
 mod task_repository;
 
 spin_sdk::dependencies!();
-
-use std::sync::Once;
 
 static INIT: Once = Once::new();
 
