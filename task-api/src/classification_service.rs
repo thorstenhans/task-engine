@@ -7,14 +7,15 @@ pub(crate) trait ClassificationService {
 pub(crate) fn new() -> impl ClassificationService {
     #[cfg(not(test))]
     {
-    ComposedClassificationService {}
+        ComposedClassificationService {}
     }
     #[cfg(test)]
     {
         mocks::MockClassificationService {}
     }
- }
+}
 
+#[cfg_attr(test, allow(dead_code))]
 pub(crate) struct ComposedClassificationService;
 
 impl ClassificationService for ComposedClassificationService {

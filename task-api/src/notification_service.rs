@@ -10,25 +10,19 @@ pub(crate) trait NotificationService {
 pub(crate) fn new(
     notification_endpoint: impl Into<String>,
 ) -> impl NotificationService {
+
     #[cfg(test)]
     {
-        mocks::MockService::new(notification_endpoint)
+    mocks::MockService::new(notification_endpoint.into())
     }
     #[cfg(not(test))]
     {
-        NtfyService::new(notification_endpoint)
+    NtfyService { api_endpoint: notification_endpoint.into()}
     }
 }
-
+#[cfg_attr(test, allow(dead_code))]
 pub struct NtfyService {
     api_endpoint: String,
-}
-impl NtfyService {
-    fn new(api_endpoint: impl Into<String>) -> Self {
-        Self {
-            api_endpoint: api_endpoint.into(),
-        }
-    }
 }
 
 #[async_trait]
@@ -58,12 +52,14 @@ impl NotificationService for NtfyService {
     }
 }
 #[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 mod mocks {
     use crate::{models::domain::Notification, notification_service::NotificationService};
     use async_trait::async_trait;
 
     pub(super) struct MockService {}
 
+    
     impl MockService {
         pub(super) fn new(_api_endpoint: impl Into<String>) -> Self {
             Self {}
@@ -75,8 +71,8 @@ mod mocks {
         async fn send(&self, notification: Notification) -> anyhow::Result<()> {
             let title = notification.get_title();
             let contents = notification.get_contents();
-            println!("NoOps notification {title}\n{contents}");
-            todo!()
+            println!("Mock notification {title}\n{contents}");
+            Ok(())
         }
     }
 }

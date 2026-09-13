@@ -1,4 +1,4 @@
-use crate::models::api::{self, Report, WorkerParams};
+use crate::models::api::{self, WorkerParams};
 use crate::models::domain;
 use serde_json::Value;
 use serde_querystring::{ParseMode, from_str};

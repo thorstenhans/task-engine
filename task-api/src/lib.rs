@@ -5,6 +5,7 @@ use spin_sdk::http::{IntoResponse, Request};
 use spin_sdk::{http_service};
 use tower_service::Service;
 use tower_http::trace::TraceLayer;
+use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
 use crate::models::config::AppConfig;
@@ -17,16 +18,24 @@ mod task_repository;
 
 spin_sdk::dependencies!();
 
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+
+pub fn init_logging(log_level: &str) {
+    INIT.call_once(|| {
+        let _ = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new(log_level))
+        .try_init();
+    });
+}
 #[http_service]
 async fn handle_task_api(req: Request) -> anyhow::Result<impl IntoResponse> {
     let Ok(cfg) = AppConfig::try_from_spin_variables().await else {
         bail!("Invalid App Config");
     };
-    tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(EnvFilter::new(&cfg.log_level))
-        .init();
-
+    init_logging(&cfg.log_level);
+    debug!("Passing incoming request to the axum router ({} {})", req.method(), req.uri());
     Ok(Router::new()
         .route(
             "/api/tasks",

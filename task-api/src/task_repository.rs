@@ -1,7 +1,7 @@
-use crate::models::domain::{Status, Task};
+use crate::models::domain::{Task};
 use anyhow::Context;
-use async_trait::async_trait;
 use spin_sdk::key_value::Store;
+use async_trait::async_trait;
 use uuid::Uuid;
 
 const TASK_KEY_PREFIX: &str = "task-";
@@ -22,12 +22,20 @@ pub(crate) fn new() -> impl Repository {
     }
     #[cfg(not(test))]
     {
-        KeyValueRepository {}
+    KeyValueRepository {}
     }
 }
 
+#[cfg_attr(test, allow(dead_code))]
 pub(crate) struct KeyValueRepository {}
 
+fn get_task_key(task_id: &Uuid) -> String {
+    format!("{TASK_KEY_PREFIX}{task_id}")
+}
+
+fn is_task(task_key: &str) -> bool {
+    task_key.starts_with(TASK_KEY_PREFIX)
+}
 #[async_trait]
 impl Repository for KeyValueRepository {
     async fn create(&mut self, value: Task) -> anyhow::Result<()> {
@@ -81,7 +89,7 @@ pub(crate) const MOCK_TASK_ID: &str = "4451ee82-1c52-4acd-bce3-6d6becb71e60";
 #[cfg(test)]
 mod mocks {
     use crate::{
-        models::domain::{Status, Task},
+        models::domain::{Task},
         task_repository::{MOCK_TASK_ID, Repository, get_task_key, is_task},
     };
     use async_trait::async_trait;
@@ -92,7 +100,6 @@ mod mocks {
         store: HashMap<String, Task>,
     }
 
-    #[cfg(test)]
     impl MockTaskRepository {
         pub(super) fn new() -> Self {
             use uuid::Uuid;
@@ -155,10 +162,3 @@ mod mocks {
     }
 }
 
-fn get_task_key(task_id: &Uuid) -> String {
-    format!("{TASK_KEY_PREFIX}{task_id}")
-}
-
-fn is_task(task_key: &str) -> bool {
-    task_key.starts_with(TASK_KEY_PREFIX)
-}

@@ -1,7 +1,7 @@
 use axum::extract::State;
 use axum::{Json, extract::Path, http::StatusCode};
 use axum_anyhow::{ApiResult, bad_request, internal_error, not_found};
-use tracing::debug;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::classification_service::ClassificationService;
@@ -12,7 +12,6 @@ use crate::models::{
     domain,
 };
 use crate::notification_service::NotificationService;
-use crate::spinbook::components::classify::{Classification, classify};
 use crate::task_repository::Repository;
 use crate::{classification_service, notification_service, task_repository};
 
@@ -27,21 +26,31 @@ pub(crate) async fn get_all_tasks() -> ApiResult<Json<Vec<Task>>> {
 pub(crate) async fn get_by_id(Path(id): Path<String>) -> ApiResult<Json<Task>> {
     let id = match Uuid::parse_str(&id) {
         Ok(id) => id,
-        Err(_e) => return Err(bad_request("Bad Request", "Invalid ID")),
+        Err(_e) => {
+            info!("Callee presented invalid identifier.");
+            return Err(bad_request("Bad Request", "Invalid ID"));
+        },
     };
     let task_repository = task_repository::new();
     let maybe_domain_model = task_repository.get_by_id(id).await?;
 
     match maybe_domain_model {
         Some(domain_model) => Ok(Json(Task::from(domain_model))),
-        None => Err(not_found("Not Found", "Task not found")),
+        None => {
+            info!("Task with Id {id} not found");
+            Err(not_found("Not Found", "Task not found"))
+        },
     }
 }
 
 pub(crate) async fn create_task(
     State(cfg): State<AppConfig>,
     Json(payload): Json<CreateTask>,
-) -> ApiResult<Json<Task>> {
+) -> ApiResult<(StatusCode, Json<Task>)> {
+
+    if payload.title.is_empty() {
+        return Err(bad_request("Bad Request", "Empty title presented"));
+    }
     let classification_svc = classification_service::new();
 
     let domain_model = domain::Task {
@@ -60,7 +69,7 @@ pub(crate) async fn create_task(
     {
         eprintln!("Could not sent notification ({e})")
     }
-    Ok(Json(domain_model.into()))
+    Ok((StatusCode::CREATED, Json(domain_model.into())))
 }
 
 pub(crate) async fn update_task_by_id(
