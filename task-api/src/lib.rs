@@ -3,7 +3,7 @@ use axum::Router;
 use axum::routing::{get, post};
 use spin_sdk::http::{IntoResponse, Request};
 use spin_sdk::http_service;
-use std::sync::Once;
+use std::sync::{Arc, Once};
 use tower_http::trace::TraceLayer;
 use tower_service::Service;
 use tracing::debug;
@@ -28,12 +28,19 @@ pub fn init_logging(log_level: &str) {
             .try_init();
     });
 }
+
+#[derive(Clone)]
+pub(crate) struct AppState {
+    pub cfg: Arc<AppConfig>,
+}
+
 #[http_service]
 async fn handle_task_api(req: Request) -> anyhow::Result<impl IntoResponse> {
     let Ok(cfg) = AppConfig::try_from_spin_variables().await else {
         bail!("Invalid App Config");
     };
-    init_logging(&cfg.log_level);
+    let state = AppState { cfg: Arc::new(cfg) };
+    init_logging(&state.cfg.log_level);
     debug!(
         "Passing incoming request to the axum router ({} {})",
         req.method(),
@@ -50,7 +57,7 @@ async fn handle_task_api(req: Request) -> anyhow::Result<impl IntoResponse> {
                 .put(handlers::update_task_by_id)
                 .delete(handlers::delete_task_by_id),
         )
-        .with_state(cfg)
+        .with_state(state)
         .layer(TraceLayer::new_for_http())
         .call(req)
         .await)
@@ -63,17 +70,22 @@ mod handlers {
     use tracing::info;
     use uuid::Uuid;
 
+    use crate::AppState;
     use crate::models::api::{CreateTask, Task, UpdateTask};
-    use crate::models::config::AppConfig;
     use crate::models::domain;
-    use crate::service;
+    use crate::service::TaskService;
 
-    pub(super) async fn get_all_tasks() -> ApiResult<Json<Vec<Task>>> {
-        let tasks = service::get_all_tasks().await?;
+    #[axum::debug_handler]
+    pub(super) async fn get_all_tasks(State(state): State<AppState>) -> ApiResult<Json<Vec<Task>>> {
+        let svc = TaskService::new(&state.cfg);
+        let tasks = svc.get_all_tasks().await?;
         let tasks = tasks.into_iter().map(Task::from).collect();
         Ok(Json(tasks))
     }
-    pub(crate) async fn get_by_id(Path(id): Path<String>) -> ApiResult<Json<Task>> {
+    pub(crate) async fn get_by_id(
+        Path(id): Path<String>,
+        State(state): State<AppState>,
+    ) -> ApiResult<Json<Task>> {
         let id = match Uuid::parse_str(&id) {
             Ok(id) => id,
             Err(_e) => {
@@ -82,7 +94,9 @@ mod handlers {
             }
         };
 
-        match service::get_task_by_id(id).await? {
+        let svc = TaskService::new(&state.cfg);
+
+        match svc.get_task_by_id(id).await? {
             Some(domain_model) => Ok(Json(Task::from(domain_model))),
             None => {
                 info!("Task with Id {id} not found");
@@ -92,7 +106,7 @@ mod handlers {
     }
 
     pub(crate) async fn create_task(
-        State(cfg): State<AppConfig>,
+        State(state): State<AppState>,
         Json(payload): Json<CreateTask>,
     ) -> ApiResult<(StatusCode, Json<Task>)> {
         if payload.title.is_empty() {
@@ -105,11 +119,12 @@ mod handlers {
             classification: String::default(),
             status: domain::Status::Open,
         };
-        let task = service::create_task(new_task, &cfg.notification_url).await?;
+        let mut svc = TaskService::new(&state.cfg);
+        let task = svc.create_task(new_task).await?;
         Ok((StatusCode::CREATED, Json(task.into())))
     }
     pub(crate) async fn update_task_by_id(
-        State(cfg): State<AppConfig>,
+        State(state): State<AppState>,
         Path(id): Path<String>,
         Json(payload): Json<UpdateTask>,
     ) -> ApiResult<Json<Task>> {
@@ -121,14 +136,8 @@ mod handlers {
             return Err(bad_request("Bad request", "Title can't be empty"));
         }
         let status = payload.status.map(|s| s.into());
-        let task = match service::update_task_by_id(
-            id,
-            payload.title,
-            status,
-            &cfg.notification_url,
-        )
-        .await
-        {
+        let mut svc = TaskService::new(&state.cfg);
+        let task = match svc.update_task_by_id(id, payload.title, status).await {
             Ok(None) => return Err(not_found("Not Found", "Task not found")),
             Ok(Some(t)) => t,
             Err(_) => {
@@ -141,12 +150,16 @@ mod handlers {
         Ok(Json(task.into()))
     }
 
-    pub(crate) async fn delete_task_by_id(Path(id): Path<String>) -> ApiResult<StatusCode> {
+    pub(crate) async fn delete_task_by_id(
+        State(state): State<AppState>,
+        Path(id): Path<String>,
+    ) -> ApiResult<StatusCode> {
         let id = match Uuid::parse_str(&id) {
             Ok(id) => id,
             Err(_) => return Err(bad_request("Bad Request", "Invalid ID")),
         };
-        service::delete_task_by_id(id).await?;
+        let svc = TaskService::new(&state.cfg);
+        svc.delete_task_by_id(id).await?;
         Ok(StatusCode::NO_CONTENT)
     }
 }

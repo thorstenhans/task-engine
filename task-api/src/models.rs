@@ -96,7 +96,7 @@ pub(crate) mod domain {
 pub(crate) mod config {
     use spin_sdk::variables;
 
-    #[derive(Clone)]
+    #[derive(Clone, Default)]
     pub(crate) struct AppConfig {
         pub log_level: String,
         pub notification_url: String,
