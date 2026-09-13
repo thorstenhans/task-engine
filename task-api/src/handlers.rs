@@ -4,16 +4,16 @@ use axum_anyhow::{ApiResult, bad_request, internal_error, not_found};
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::classification_service::ClassificationService;
+use crate::classifier::{self, Classifier};
 use crate::models::config::AppConfig;
 use crate::models::domain::{Notification, Status};
 use crate::models::{
     api::{CreateTask, Task, UpdateTask},
     domain,
 };
-use crate::notification_service::NotificationService;
-use crate::task_repository::Repository;
-use crate::{classification_service, notification_service, task_repository};
+use crate::notifier::{self, Notifier};
+use crate::service;
+use crate::task_repository::{self, Repository};
 
 pub(crate) async fn get_all_tasks() -> ApiResult<Json<Vec<Task>>> {
     let task_repository = task_repository::new();
@@ -31,10 +31,8 @@ pub(crate) async fn get_by_id(Path(id): Path<String>) -> ApiResult<Json<Task>> {
             return Err(bad_request("Bad Request", "Invalid ID"));
         },
     };
-    let task_repository = task_repository::new();
-    let maybe_domain_model = task_repository.get_by_id(id).await?;
 
-    match maybe_domain_model {
+    match service::get_task_by_id(id).await? {
         Some(domain_model) => Ok(Json(Task::from(domain_model))),
         None => {
             info!("Task with Id {id} not found");
@@ -51,7 +49,7 @@ pub(crate) async fn create_task(
     if payload.title.is_empty() {
         return Err(bad_request("Bad Request", "Empty title presented"));
     }
-    let classification_svc = classification_service::new();
+    let classification_svc = classifier::new();
 
     let domain_model = domain::Task {
         id: Uuid::new_v4(),
@@ -62,7 +60,7 @@ pub(crate) async fn create_task(
     let mut task_repo = task_repository::new();
     task_repo.create(domain_model.clone()).await?;
     println!("Task created with ID: {}", domain_model.id);
-    let notification_svc = notification_service::new(&cfg.notification_url);
+    let notification_svc = notifier::new(&cfg.notification_url);
     if let Err(e) = notification_svc
         .send(Notification::TaskCreated(domain_model.title.clone()))
         .await
@@ -81,6 +79,9 @@ pub(crate) async fn update_task_by_id(
         Ok(id) => id,
         Err(_) => return Err(bad_request("Bad Request", "Invalid ID")),
     };
+    if payload.title.clone().is_some_and(|t| t.is_empty()) {
+        return Err(bad_request("Bad request", "Title can't be empty" ));
+    }
     let mut task_repo = task_repository::new();
     let mut task = match task_repo.get_by_id(id).await {
         Ok(Some(t)) => t,
@@ -90,7 +91,7 @@ pub(crate) async fn update_task_by_id(
     if let Some(updated_title) = payload.title {
         println!("Updating task title to: {}", updated_title);
         task.title = updated_title.clone();
-        let classification_svc = classification_service::new();
+        let classification_svc = classifier::new();
         task.classification = classification_svc.classify(&updated_title);
     }
     if let Some(updated_status) = payload.status.map(|s| s.into()) {
@@ -100,7 +101,7 @@ pub(crate) async fn update_task_by_id(
 
     task_repo.update_task(task.clone()).await?;
     if task.status == Status::Done {
-        let notification_svc = notification_service::new(&cfg.notification_url);
+        let notification_svc = notifier::new(&cfg.notification_url);
         let notification = Notification::TaskCompleted(task.title.clone());
         if let Err(e) = notification_svc.send(notification).await {
             eprintln!("Could not send notification ({e})");

@@ -3,30 +3,30 @@ use async_trait::async_trait;
 use spin_sdk::http::Request;
 
 #[async_trait]
-pub(crate) trait NotificationService {
+pub(crate) trait Notifier {
     async fn send(&self, notification: Notification) -> anyhow::Result<()>;
 }
 
 pub(crate) fn new(
     notification_endpoint: impl Into<String>,
-) -> impl NotificationService {
+) -> impl Notifier {
 
     #[cfg(test)]
     {
-    mocks::MockService::new(notification_endpoint.into())
+    mocks::MockNotifier::new(notification_endpoint.into())
     }
     #[cfg(not(test))]
     {
-    NtfyService { api_endpoint: notification_endpoint.into()}
+    NtfyNotifier { api_endpoint: notification_endpoint.into()}
     }
 }
 #[cfg_attr(test, allow(dead_code))]
-pub struct NtfyService {
+pub struct NtfyNotifier {
     api_endpoint: String,
 }
 
 #[async_trait]
-impl NotificationService for NtfyService {
+impl Notifier for NtfyNotifier {
     async fn send(&self, notification: Notification) -> anyhow::Result<()> {
         let title = notification.get_title();
         let contents = notification.get_contents();
@@ -54,19 +54,20 @@ impl NotificationService for NtfyService {
 #[cfg(test)]
 #[cfg_attr(not(test), allow(dead_code))]
 mod mocks {
-    use crate::{models::domain::Notification, notification_service::NotificationService};
+    use crate::{models::domain::Notification};
+    use super::Notifier;
     use async_trait::async_trait;
 
-    pub(super) struct MockService {}
+    pub(super) struct MockNotifier {}
 
     
-    impl MockService {
+    impl MockNotifier {
         pub(super) fn new(_api_endpoint: impl Into<String>) -> Self {
             Self {}
         }
     }
     #[async_trait]
-    impl NotificationService for MockService {
+    impl Notifier for MockNotifier {
         #[allow(unused_variables)]
         async fn send(&self, notification: Notification) -> anyhow::Result<()> {
             let title = notification.get_title();

@@ -1,24 +1,24 @@
 use crate::spinbook::components::classify::{Classification, classify};
 
-pub(crate) trait ClassificationService {
+pub(crate) trait Classifier {
     fn classify(&self, title: &str) -> String;
 }
 
-pub(crate) fn new() -> impl ClassificationService {
+pub(crate) fn new() -> impl Classifier {
     #[cfg(not(test))]
     {
-        ComposedClassificationService {}
+        ComposedClassifier {}
     }
     #[cfg(test)]
     {
-        mocks::MockClassificationService {}
+        mocks::MockClassifier {}
     }
 }
 
 #[cfg_attr(test, allow(dead_code))]
-pub(crate) struct ComposedClassificationService;
+pub(crate) struct ComposedClassifier;
 
-impl ClassificationService for ComposedClassificationService {
+impl Classifier for ComposedClassifier {
     fn classify(&self, title: &str) -> String {
         match classify(title) {
             Classification::Neutral => "neutral",
@@ -30,11 +30,11 @@ impl ClassificationService for ComposedClassificationService {
 
 #[cfg(test)]
 mod mocks {
-    use super::ClassificationService;
+    use super::Classifier;
 
-    pub(crate) struct MockClassificationService;
+    pub(crate) struct MockClassifier;
 
-    impl ClassificationService for MockClassificationService {
+    impl Classifier for MockClassifier {
         fn classify(&self, title: &str) -> String {
             match title.to_lowercase() {
                 x if x.contains("asap") => "urgent",

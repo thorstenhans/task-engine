@@ -1,6 +1,6 @@
 mod common;
 
-use common::{SpinTestBed, wait_until_ready};
+use common::{SpinTestBed};
 #[derive(serde::Serialize)]
 struct NewTask<'a> {
     title: &'a str,
@@ -18,13 +18,13 @@ struct Task {
 async fn create_then_fetch_task() {
     let app = SpinTestBed::start(true).await
         .expect("Could not start test bed for Spin application");
-    let base = app.get_base_url();
-    wait_until_ready(&base).await;
+    app.wait_until_ready().await;
 
+    let tasks_endpoint = app.get_endpoint_url("/api/tasks");
     let client = reqwest::Client::new();
     // POST /api/tasks -> 201 {task}
     let resp = client
-        .post(format!("{base}/api/tasks"))
+        .post(tasks_endpoint)
         .json(&NewTask { title: "Buy Coffee ASAP" })
         .send()
         .await
@@ -37,8 +37,10 @@ async fn create_then_fetch_task() {
     assert_eq!(created.classification.as_deref(), Some("urgent"));
 
     // GET /api/tasks/{id} -> 200 {task}
+    let task_endpoint = app.get_endpoint_url(&format!("/api/tasks/{}", created.id));
+
     let got = client
-        .get(format!("{base}/api/tasks/{}", created.id))
+        .get(task_endpoint.clone())
         .send()
         .await
         .unwrap();
@@ -47,7 +49,7 @@ async fn create_then_fetch_task() {
 
     // DELETE /api/tasks/{id} -> 204
     let deleted = client
-        .delete(format!("{base}/api/tasks/{}", created.id))
+        .delete(task_endpoint)
         .send()
         .await
         .unwrap();

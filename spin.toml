@@ -25,9 +25,6 @@ command = "cargo build --target wasm32-wasip2 --release"
 workdir = "task-api"
 watch = ["src/**/*.rs", "Cargo.toml"]
 
-[component.task-api.profile.test.build]
-command = "cargo build --target wasm32-wasip2 --release --features mock"
-
 [component.task-api.variables]
 notification_url = "{{ notification_origin }}/{{ notification_topic }}"
 log_level = "{{ log_level }}"
