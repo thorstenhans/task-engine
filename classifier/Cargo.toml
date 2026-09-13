@@ -1,0 +1,15 @@
+[package]
+name = "classifier"
+authors = ["Thorsten Hans <thorsten.hans@gmail.com>"]
+description = ""
+version = "0.1.0"
+rust-version = "1.93"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.60.0"
+
+[workspace]

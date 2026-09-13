@@ -1,0 +1,62 @@
+spin_manifest_version = 2
+
+[application]
+name = "task-engine"
+version = "0.1.0"
+authors = ["Thorsten Hans <thorsten.hans@gmail.com>"]
+description = ""
+
+[variables]
+notification_origin = { default = "https://ntfy.sh" }
+notification_topic = { default = "spin-book" }
+log_level = { default = "debug" }
+
+[[trigger.http]]
+route = "/api/tasks/..."
+component = "task-api"
+
+[component.task-api]
+source = "task-api/target/wasm32-wasip2/release/task_api.wasm"
+allowed_outbound_hosts = ["{{ notification_origin  }}"]
+key_value_stores = ["default"]
+
+[component.task-api.build]
+command = "cargo build --target wasm32-wasip2 --release"
+workdir = "task-api"
+watch = ["src/**/*.rs", "Cargo.toml"]
+
+[component.task-api.variables]
+notification_url = "{{ notification_origin }}/{{ notification_topic }}"
+log_level = "{{ log_level }}"
+
+[component.task-api.dependencies]
+"spinbook:components@0.1.0" = { path = "./classifier/target/wasm32-wasip2/release/classifier.wasm" }
+
+[[trigger.http]]
+route = "/..."
+component = "frontend"
+
+[component.frontend]
+source = { url = "https://github.com/spinframework/spin-fileserver/releases/download/v0.3.0/spin_static_fs.wasm", digest = "sha256:ef88708817e107bf49985c7cefe4dd1f199bf26f6727819183d5c996baa3d148" }
+files = [{ source = "frontend", destination = "/" }]
+
+[component.classifier]
+source = "classifier/target/wasm32-wasip2/release/classifier.wasm"
+allowed_outbound_hosts = []
+
+[component.classifier.build]
+command = "cargo build --target wasm32-wasip2 --release"
+workdir = "classifier"
+watch = ["src/**/*.rs", "Cargo.toml"]
+
+[[trigger.http]]
+route = "/_jobs/..."
+component = "worker"
+
+[component.worker]
+source = "worker/target/wasm32-wasip2/release/worker.wasm"
+allowed_outbound_hosts = []
+[component.worker.build]
+command = "cargo build --target wasm32-wasip2 --release"
+workdir = "worker"
+watch = ["src/**/*.rs", "Cargo.toml"]

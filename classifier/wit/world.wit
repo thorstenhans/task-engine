@@ -1,0 +1,14 @@
+package spinbook:components@0.1.0;
+
+interface classify {
+    enum classification {
+        urgent,
+        neutral,
+        relaxed
+    }
+    classify: func(input: string) -> classification;
+}
+
+world classifier {
+    export classify;
+}
