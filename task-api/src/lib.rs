@@ -11,7 +11,8 @@ use crate::models::config::AppConfig;
 
 mod handlers;
 mod models;
-mod services;
+mod classification_service;
+mod notification_service;
 mod task_repository;
 
 spin_sdk::dependencies!();

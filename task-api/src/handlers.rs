@@ -4,16 +4,17 @@ use axum_anyhow::{ApiResult, bad_request, internal_error, not_found};
 use tracing::debug;
 use uuid::Uuid;
 
+use crate::classification_service::ClassificationService;
 use crate::models::config::AppConfig;
 use crate::models::domain::{Notification, Status};
 use crate::models::{
     api::{CreateTask, Task, UpdateTask},
     domain,
 };
-use crate::services::NotificationService;
+use crate::notification_service::NotificationService;
 use crate::spinbook::components::classify::{Classification, classify};
 use crate::task_repository::Repository;
-use crate::{services, task_repository};
+use crate::{classification_service, notification_service, task_repository};
 
 pub(crate) async fn get_all_tasks() -> ApiResult<Json<Vec<Task>>> {
     let task_repository = task_repository::new();
@@ -41,17 +42,19 @@ pub(crate) async fn create_task(
     State(cfg): State<AppConfig>,
     Json(payload): Json<CreateTask>,
 ) -> ApiResult<Json<Task>> {
+    let classification_svc = classification_service::new();
+
     let domain_model = domain::Task {
         id: Uuid::new_v4(),
         title: payload.title.clone(),
-        classification: classify_task(payload.title),
+        classification: classification_svc.classify(&payload.title),
         status: domain::Status::Open,
     };
-    let mut task_repository = task_repository::new();
-    task_repository.create(domain_model.clone()).await?;
+    let mut task_repo = task_repository::new();
+    task_repo.create(domain_model.clone()).await?;
     println!("Task created with ID: {}", domain_model.id);
-    let notification_service = services::new_notification_service(&cfg.notification_url);
-    if let Err(e) = notification_service
+    let notification_svc = notification_service::new(&cfg.notification_url);
+    if let Err(e) = notification_svc
         .send(Notification::TaskCreated(domain_model.title.clone()))
         .await
     {
@@ -69,8 +72,8 @@ pub(crate) async fn update_task_by_id(
         Ok(id) => id,
         Err(_) => return Err(bad_request("Bad Request", "Invalid ID")),
     };
-    let mut task_repository = task_repository::new();
-    let mut task = match task_repository.get_by_id(id).await {
+    let mut task_repo = task_repository::new();
+    let mut task = match task_repo.get_by_id(id).await {
         Ok(Some(t)) => t,
         Ok(None) => return Err(not_found("Not Found", "Task not found")),
         Err(_) => return Err(internal_error("Internal Error", "Could not load task")),
@@ -78,18 +81,19 @@ pub(crate) async fn update_task_by_id(
     if let Some(updated_title) = payload.title {
         println!("Updating task title to: {}", updated_title);
         task.title = updated_title.clone();
-        task.classification = classify_task(updated_title);
+        let classification_svc = classification_service::new();
+        task.classification = classification_svc.classify(&updated_title);
     }
     if let Some(updated_status) = payload.status.map(|s| s.into()) {
         println!("Updating task status to: {:?}", updated_status);
         task.status = updated_status;
     }
 
-    task_repository.update_task(task.clone()).await?;
+    task_repo.update_task(task.clone()).await?;
     if task.status == Status::Done {
-        let notification_service = services::new_notification_service(&cfg.notification_url);
+        let notification_svc = notification_service::new(&cfg.notification_url);
         let notification = Notification::TaskCompleted(task.title.clone());
-        if let Err(e) = notification_service.send(notification).await {
+        if let Err(e) = notification_svc.send(notification).await {
             eprintln!("Could not send notification ({e})");
         };
     }
@@ -104,14 +108,6 @@ pub(crate) async fn delete_task_by_id(Path(id): Path<String>) -> ApiResult<Statu
     let mut task_repository = task_repository::new();
     task_repository.delete_task_by_id(id).await?;
     Ok(StatusCode::NO_CONTENT)
-}
-
-fn classify_task(title: String) -> String {
-    match classify(&title.to_lowercase()) {
-        Classification::Urgent => String::from("urgent"),
-        Classification::Neutral => String::from("neutral"),
-        Classification::Relaxed => String::from("relaxed"),
-    }
 }
 
 #[cfg(test)]

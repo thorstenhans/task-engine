@@ -7,7 +7,7 @@ pub(crate) trait NotificationService {
     async fn send(&self, notification: Notification) -> anyhow::Result<()>;
 }
 
-pub(crate) fn new_notification_service(
+pub(crate) fn new(
     notification_endpoint: impl Into<String>,
 ) -> impl NotificationService {
     #[cfg(test)]
@@ -59,7 +59,7 @@ impl NotificationService for NtfyService {
 }
 #[cfg(test)]
 mod mocks {
-    use crate::{models::domain::Notification, services::NotificationService};
+    use crate::{models::domain::Notification, notification_service::NotificationService};
     use async_trait::async_trait;
 
     pub(super) struct MockService {}
