@@ -1,7 +1,7 @@
-use crate::models::domain::{Task};
+use crate::models::domain::Task;
 use anyhow::Context;
-use spin_sdk::key_value::Store;
 use async_trait::async_trait;
+use spin_sdk::key_value::Store;
 use uuid::Uuid;
 
 const TASK_KEY_PREFIX: &str = "task-";
@@ -22,7 +22,7 @@ pub(crate) fn new() -> impl Repository {
     }
     #[cfg(not(test))]
     {
-    KeyValueRepository {}
+        KeyValueRepository {}
     }
 }
 
@@ -89,8 +89,8 @@ pub(crate) const MOCK_TASK_ID: &str = "4451ee82-1c52-4acd-bce3-6d6becb71e60";
 #[cfg(test)]
 mod mocks {
     use crate::{
-        models::domain::{Task},
-        task_repository::{MOCK_TASK_ID, Repository, get_task_key, is_task},
+        models::domain::Task,
+        repository::{MOCK_TASK_ID, Repository, get_task_key, is_task},
     };
     use async_trait::async_trait;
     use std::collections::HashMap;
@@ -161,4 +161,3 @@ mod mocks {
         }
     }
 }
-

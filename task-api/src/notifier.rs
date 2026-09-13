@@ -7,17 +7,16 @@ pub(crate) trait Notifier {
     async fn send(&self, notification: Notification) -> anyhow::Result<()>;
 }
 
-pub(crate) fn new(
-    notification_endpoint: impl Into<String>,
-) -> impl Notifier {
-
+pub(crate) fn new(notification_endpoint: impl Into<String>) -> impl Notifier {
     #[cfg(test)]
     {
-    mocks::MockNotifier::new(notification_endpoint.into())
+        mocks::MockNotifier::new(notification_endpoint.into())
     }
     #[cfg(not(test))]
     {
-    NtfyNotifier { api_endpoint: notification_endpoint.into()}
+        NtfyNotifier {
+            api_endpoint: notification_endpoint.into(),
+        }
     }
 }
 #[cfg_attr(test, allow(dead_code))]
@@ -54,13 +53,12 @@ impl Notifier for NtfyNotifier {
 #[cfg(test)]
 #[cfg_attr(not(test), allow(dead_code))]
 mod mocks {
-    use crate::{models::domain::Notification};
     use super::Notifier;
+    use crate::models::domain::Notification;
     use async_trait::async_trait;
 
     pub(super) struct MockNotifier {}
 
-    
     impl MockNotifier {
         pub(super) fn new(_api_endpoint: impl Into<String>) -> Self {
             Self {}

@@ -24,7 +24,8 @@ impl Classifier for ComposedClassifier {
             Classification::Neutral => "neutral",
             Classification::Urgent => "urgent",
             Classification::Relaxed => "relaxed",
-        }.to_string()
+        }
+        .to_string()
     }
 }
 
@@ -40,7 +41,8 @@ mod mocks {
                 x if x.contains("asap") => "urgent",
                 x if x.contains("someday") => "relaxed",
                 _ => "neutral",
-            }.to_string()
+            }
+            .to_string()
         }
     }
 }

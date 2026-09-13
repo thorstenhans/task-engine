@@ -69,7 +69,7 @@ pub(crate) mod domain {
         }
     }
 
-    #[derive(Deserialize, Serialize, Clone)]
+    #[derive(Deserialize, Serialize, Clone, Debug)]
     pub(crate) struct Task {
         pub id: Uuid,
         pub title: String,
@@ -104,10 +104,8 @@ pub(crate) mod config {
 
     impl AppConfig {
         pub async fn try_from_spin_variables() -> anyhow::Result<Self> {
-            let notification_url = variables::get("notification_url")
-                .await?;
-            let log_level = variables::get("log_level")
-                .await?;
+            let notification_url = variables::get("notification_url").await?;
+            let log_level = variables::get("log_level").await?;
 
             Ok(Self {
                 log_level,
