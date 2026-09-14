@@ -5,7 +5,7 @@ use crate::{
     notifier::{self, Notifier},
     repository::{self, Repository},
 };
-use tracing::debug;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 pub(crate) struct TaskService {
@@ -70,7 +70,7 @@ impl TaskService {
 
     pub(crate) async fn create_task(&mut self, title: String) -> anyhow::Result<domain::Task> {
         let new_task_id = Uuid::new_v4();
-        println!("Generated new ID {new_task_id}");
+        info!("Generated new ID {new_task_id}");
         let new_task = domain::Task {
             id: new_task_id,
             title: title.clone(),
@@ -79,13 +79,13 @@ impl TaskService {
         };
 
         self.repo.create(new_task.clone()).await?;
-        println!("Task created with ID: {}", new_task.id);
+        debug!("Task created with ID: {}", new_task.id);
         if let Err(e) = self
             .notifier
             .send(Notification::TaskCreated(new_task.title.clone()))
             .await
         {
-            eprintln!("Could not sent notification ({e})");
+            warn!("Could not sent notification ({e})");
         }
         Ok(new_task)
     }

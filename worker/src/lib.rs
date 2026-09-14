@@ -11,6 +11,7 @@ mod models;
 const KEY_TASK_PREFIX: &str = "task-";
 const KEY_REPORT: &str = "report";
 const KEY_ARCHIVED_TASK_PREFIX: &str = "archived-task-";
+
 const TASK_STATUS_OPEN: &str = "open";
 const TASK_STATUS_DONE: &str = "done";
 const TASK_STATUS_PROPERTY: &str = "status";
@@ -18,17 +19,17 @@ const TASK_ID_PROPERTY: &str = "id";
 
 #[http_service]
 async fn handle_worker(req: Request) -> anyhow::Result<impl IntoResponse> {
-    if req.method() != Method::POST || req.method() != Method::GET {
+    if req.method() != Method::POST && req.method() != Method::GET {
         return Ok(StatusCode::METHOD_NOT_ALLOWED.into_response());
     }
-    let Ok(expected_token) = variables::get("token").await else {
-        return Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response());
-    };
     let Some(qs) = req.uri().query() else {
         return Ok(StatusCode::UNAUTHORIZED.into_response());
     };
     let Ok(params) = from_str::<WorkerParams>(qs, ParseMode::UrlEncoded) else {
         return Ok(StatusCode::UNAUTHORIZED.into_response());
+    };
+    let Ok(expected_token) = variables::get("token").await else {
+        return Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response());
     };
     if params.token != expected_token {
         return Ok(StatusCode::UNAUTHORIZED.into_response());
@@ -60,12 +61,14 @@ async fn cleanup_and_generate_report() -> anyhow::Result<domain::Report> {
         };
         let status = task
             .get(TASK_STATUS_PROPERTY)
-            .map(|v| v.to_string())
+            .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_lowercase();
-        let task_id = task.get(TASK_ID_PROPERTY)
-            .map(|v| v.to_string())
-            .unwrap_or_default();
+        let task_id = task
+            .get(TASK_ID_PROPERTY)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
 
         match status.as_str() {
             TASK_STATUS_OPEN => {

@@ -1,5 +1,5 @@
 use std::net::TcpListener;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
 #[cfg(unix)]
@@ -12,7 +12,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 pub(crate) struct SpinTestBed {
     pub child: Child,
-    pub port: u16
+    pub port: u16,
 }
 
 const LOOPBACK: &str = "127.0.0.1";
@@ -25,7 +25,8 @@ impl SpinTestBed {
         Mock::given(method("POST"))
             .and(path("/notify"))
             .respond_with(ResponseTemplate::new(200))
-            .mount(&ntfy_mock).await;
+            .mount(&ntfy_mock)
+            .await;
 
         let Ok(port) = find_free_port() else {
             return Err(anyhow::anyhow!("Could not find free port"));
@@ -41,33 +42,37 @@ impl SpinTestBed {
         let ntfy_mock_origin = ntfy_mock.uri();
 
         let mut cmd = Command::new("spin");
+        cmd.stderr(Stdio::null());
+        cmd.stdout(Stdio::null());
         cmd.args(args)
-           .env("SPIN_VARIABLE_NOTIFICATION_ORIGIN", ntfy_mock_origin)
-           .env("SPIN_VARIABLE_WORKER_TOKEN", "test-token");
+            .env("SPIN_VARIABLE_NOTIFICATION_ORIGIN", ntfy_mock_origin)
+            .env("SPIN_VARIABLE_WORKER_TOKEN", "test-token");
 
         #[cfg(unix)]
         {
             cmd.process_group(0);
         }
-        let child = cmd.spawn().with_context( || "Failed to launch Spin for Integration Test")?;
-        Ok(SpinTestBed{child, port})
+        let child = cmd
+            .spawn()
+            .with_context(|| "Failed to launch Spin for Integration Test")?;
+        Ok(SpinTestBed { child, port })
     }
 
     pub(crate) fn get_endpoint_url(&self, path: &str) -> String {
-        format!("http://{LOOPBACK}:{}{path}", self.port )
+        format!("http://{LOOPBACK}:{}{path}", self.port)
     }
 
-pub(crate) async fn wait_until_ready(&self) {
-    let client = reqwest::Client::new();
-    let url = self.get_endpoint_url(SPIN_HEALTH_ENDPOINT);
-    for _ in 0..50 {
-        if client.get(url.clone()).send().await.is_ok() {
-            return;
+    pub(crate) async fn wait_until_ready(&self) {
+        let client = reqwest::Client::new();
+        let url = self.get_endpoint_url(SPIN_HEALTH_ENDPOINT);
+        for _ in 0..50 {
+            if client.get(url.clone()).send().await.is_ok() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
         }
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        panic!("app did not become ready in time");
     }
-    panic!("app did not become ready in time");
-}
 }
 
 impl Drop for SpinTestBed {
@@ -88,8 +93,10 @@ impl Drop for SpinTestBed {
 }
 
 fn find_free_port() -> anyhow::Result<u16> {
-    let listener = TcpListener::bind(format!("{LOOPBACK}:0")).with_context( || "Failed to bind to ephemeral port")?;
-    let local_addr = listener.local_addr().with_context(|| "Faild to determine free local port")?;
+    let listener = TcpListener::bind(format!("{LOOPBACK}:0"))
+        .with_context(|| "Failed to bind to ephemeral port")?;
+    let local_addr = listener
+        .local_addr()
+        .with_context(|| "Faild to determine free local port")?;
     Ok(local_addr.port())
-
 }
