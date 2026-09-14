@@ -46,13 +46,14 @@ impl TaskService {
             task.title = updated_title.clone();
             task.classification = self.classifier.classify(&updated_title);
         }
+        let old_status = task.status.clone();
         if let Some(updated_status) = status {
             println!("Updating task status to: {:?}", updated_status);
             task.status = updated_status;
         }
 
         self.repo.update_task(task.clone()).await?;
-        if task.status == Status::Done {
+        if old_status == Status::Open && task.status == Status::Done {
             let notification = Notification::TaskCompleted(task.title.clone());
             if let Err(e) = self.notifier.send(notification).await {
                 eprintln!("Could not send notification ({e})");
