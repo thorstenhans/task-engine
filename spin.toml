@@ -10,6 +10,7 @@ description = ""
 notification_origin = { default = "https://ntfy.sh" }
 notification_topic = { default = "spin-book" }
 log_level = { default = "debug" }
+log_json = { default = "true" }
 
 [[trigger.http]]
 route = "/api/tasks/..."
@@ -28,6 +29,7 @@ watch = ["src/**/*.rs", "Cargo.toml"]
 [component.task-api.variables]
 notification_url = "{{ notification_origin }}/{{ notification_topic }}"
 log_level = "{{ log_level }}"
+log_json = "{{ log_json }}"
 
 [component.task-api.dependencies]
 "spinbook:components@0.1.0" = { path = "./classifier/target/wasm32-wasip2/release/classifier.wasm" }

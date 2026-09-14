@@ -7,7 +7,9 @@ use std::sync::Once;
 use tower_http::trace::TraceLayer;
 use tower_service::Service;
 use tracing::debug;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer};
 
 use crate::config::AppConfig;
 
@@ -22,10 +24,22 @@ spin_sdk::dependencies!();
 
 static INIT: Once = Once::new();
 
-pub fn init_logging(log_level: &str) {
+pub fn init_logging(log_level: &str, as_json: bool) {
     INIT.call_once(|| {
-        let _ = tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::new(log_level))
+        let env_filter = EnvFilter::new(log_level);
+
+        let format_layer = match as_json {
+            true => tracing_subscriber::fmt::layer()
+                .json()
+                .with_target(true)
+                .boxed(),
+            false => tracing_subscriber::fmt::layer()
+                .compact()
+                .with_target(true)
+                .boxed(),
+        };
+        let _ = tracing_subscriber::Registry::default()
+            .with(format_layer.with_filter(env_filter))
             .try_init();
     });
 }
@@ -35,7 +49,7 @@ async fn handle_task_api(req: Request) -> anyhow::Result<impl IntoResponse> {
     let Ok(cfg) = AppConfig::try_from_spin_variables().await else {
         bail!("Invalid App Config");
     };
-    init_logging(&cfg.log_level);
+    init_logging(&cfg.log_level, cfg.log_as_json);
     debug!(
         "Passing incoming request to the axum router ({} {})",
         req.method(),
