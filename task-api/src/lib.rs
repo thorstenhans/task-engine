@@ -72,10 +72,8 @@ mod handlers {
 
     use crate::AppState;
     use crate::models::api::{CreateTask, Task, UpdateTask};
-    use crate::models::domain;
     use crate::service::TaskService;
 
-    #[axum::debug_handler]
     pub(super) async fn get_all_tasks(State(state): State<AppState>) -> ApiResult<Json<Vec<Task>>> {
         let svc = TaskService::new(&state.cfg);
         let tasks = svc.get_all_tasks().await?;
@@ -112,17 +110,11 @@ mod handlers {
         if payload.title.is_empty() {
             return Err(bad_request("Bad Request", "Empty title presented"));
         }
-
-        let new_task = domain::Task {
-            id: Uuid::new_v4(),
-            title: payload.title.clone(),
-            classification: String::default(),
-            status: domain::Status::Open,
-        };
         let mut svc = TaskService::new(&state.cfg);
-        let task = svc.create_task(new_task).await?;
+        let task = svc.create_task(payload.title).await?;
         Ok((StatusCode::CREATED, Json(task.into())))
     }
+
     pub(crate) async fn update_task_by_id(
         State(state): State<AppState>,
         Path(id): Path<String>,

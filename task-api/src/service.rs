@@ -70,10 +70,16 @@ impl TaskService {
         Ok(domain_models)
     }
 
-    pub(crate) async fn create_task(&mut self, new_task: domain::Task) -> anyhow::Result<domain::Task> {
-        let mut new_task = new_task;
+    pub(crate) async fn create_task(&mut self, title: String) -> anyhow::Result<domain::Task> {
+        let new_task_id = Uuid::new_v4();
+        println!("Generated new ID {new_task_id}");
+        let new_task = domain::Task {
+            id: new_task_id,
+            title: title.clone(),
+            classification: self.classifier.classify(&title),
+            status: domain::Status::Open,
+        };
 
-        new_task.classification = self.classifier.classify(&new_task.title);
         self.repo.create(new_task.clone()).await?;
         println!("Task created with ID: {}", new_task.id);
         if let Err(e) = self.notifier
