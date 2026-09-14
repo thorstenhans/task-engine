@@ -90,6 +90,7 @@ impl TaskService {
         Ok(new_task)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use uuid::Uuid;
