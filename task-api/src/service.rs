@@ -1,9 +1,7 @@
 use crate::{
     classifier::{self, Classifier},
-    models::{
-        config::AppConfig,
-        domain::{self, Notification, Status},
-    },
+    config::AppConfig,
+    models::domain::{self, Notification, Status},
     notifier::{self, Notifier},
     repository::{self, Repository},
 };
@@ -13,15 +11,14 @@ use uuid::Uuid;
 pub(crate) struct TaskService {
     notifier: Box<dyn Notifier + Send + Sync>,
     classifier: Box<dyn Classifier + Send + Sync>,
-    repo: Box<dyn Repository + Send + Sync>
-
+    repo: Box<dyn Repository + Send + Sync>,
 }
 impl TaskService {
     pub(crate) fn new(cfg: &AppConfig) -> Self {
-        Self { 
+        Self {
             notifier: Box::new(notifier::new(cfg.notification_url.clone())),
             classifier: Box::new(classifier::new()),
-            repo: Box::new(repository::new())
+            repo: Box::new(repository::new()),
         }
     }
     pub(crate) async fn get_task_by_id(&self, id: Uuid) -> anyhow::Result<Option<domain::Task>> {
@@ -82,7 +79,8 @@ impl TaskService {
 
         self.repo.create(new_task.clone()).await?;
         println!("Task created with ID: {}", new_task.id);
-        if let Err(e) = self.notifier
+        if let Err(e) = self
+            .notifier
             .send(Notification::TaskCreated(new_task.title.clone()))
             .await
         {
@@ -95,7 +93,7 @@ impl TaskService {
 mod tests {
     use uuid::Uuid;
 
-    use crate::{models::config::AppConfig, repository::MOCK_TASK_ID, service::TaskService};
+    use crate::{config::AppConfig, repository::MOCK_TASK_ID, service::TaskService};
 
     #[tokio::test]
     async fn test_get_non_existing_by_id() {
