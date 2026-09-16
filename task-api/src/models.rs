@@ -1,14 +1,18 @@
 pub(crate) mod api {
     use serde::{Deserialize, Serialize};
+    use garde::Validate;
 
-    #[derive(Deserialize, Serialize)]
-    pub(crate) struct CreateTask {
+   #[derive(Deserialize, Serialize, Validate)]
+   pub(crate) struct CreateTask {
+        #[garde(length(min=3, max=100))]
         pub title: String,
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Validate)]
     pub(crate) struct UpdateTask {
+        #[garde(length(min=3, max=100))]
         pub title: Option<String>,
+        #[garde(skip)]
         pub status: Option<Status>,
     }
 

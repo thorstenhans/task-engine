@@ -15,7 +15,7 @@ struct Task {
 
 
 #[tokio::test]
-async fn create_then_fetch_task() {
+async fn create_then_get_and_delete() {
     let app = SpinTestBed::start(true).await
         .expect("Could not start test bed for Spin application");
     app.wait_until_ready().await;

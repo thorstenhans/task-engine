@@ -1,6 +1,7 @@
 use anyhow::bail;
-use axum::Router;
+use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, post};
+use axum::{Router, middleware};
 use spin_sdk::http::{IntoResponse, Request};
 use spin_sdk::http_service;
 use std::sync::Once;
@@ -66,16 +67,30 @@ async fn handle_task_api(req: Request) -> anyhow::Result<impl IntoResponse> {
                 .put(handlers::update_task_by_id)
                 .delete(handlers::delete_task_by_id),
         )
+        .layer(DefaultBodyLimit::max(cfg.request_size_limit_in_kb * 1024))
         .with_state(cfg)
         .layer(TraceLayer::new_for_http())
+        .layer(middleware::from_fn(middlewares::api_security_headers))
         .call(req)
         .await)
+}
+
+mod middlewares {
+    use axum::{extract::Request, middleware::Next, response::Response};
+
+    pub(super) async fn api_security_headers(req: Request, next: Next) -> Response {
+        let mut response = next.run(req).await;
+        let headers = response.headers_mut();
+        headers.insert("X-Content-Type-Options", "nosniff".parse().unwrap());
+        response
+    }
 }
 
 mod handlers {
     use axum::extract::State;
     use axum::{Json, extract::Path, http::StatusCode};
     use axum_anyhow::{ApiResult, bad_request, internal_error, not_found};
+    use garde::Validate;
     use tracing::info;
     use uuid::Uuid;
 
@@ -116,9 +131,12 @@ mod handlers {
         State(cfg): State<AppConfig>,
         Json(payload): Json<CreateTask>,
     ) -> ApiResult<(StatusCode, Json<Task>)> {
-        if payload.title.is_empty() {
-            return Err(bad_request("Bad Request", "Empty title presented"));
+        if let Err(e) = payload.validate() {
+            return Err(bad_request("Bad Request", &e.to_string()));
         }
+        // if payload.title.is_empty() {
+        //    return Err(bad_request("Bad Request", "Empty title presented"));
+        //}
         let mut svc = TaskService::new(&cfg);
         let task = svc.create_task(payload.title).await?;
         Ok((StatusCode::CREATED, Json(task.into())))
@@ -133,6 +151,9 @@ mod handlers {
             Ok(id) => id,
             Err(_) => return Err(bad_request("Bad Request", "Invalid ID")),
         };
+        if let Err(e) = payload.validate() {
+            return Err(bad_request("Bad Request", &e.to_string()));
+        }
         if payload.title.clone().is_some_and(|t| t.is_empty()) {
             return Err(bad_request("Bad request", "Title can't be empty"));
         }

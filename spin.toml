@@ -12,6 +12,7 @@ log_level = { default = "debug" }
 notification_origin = { default = "https://ntfy.sh" }
 notification_topic = { default = "spin-book" }
 worker_token = { default = "test-token" }
+request_size_limit_in_kb = { default = "2" }
 
 [[trigger.http]]
 route = "/api/tasks/..."
@@ -39,6 +40,7 @@ watch = ["src/**/*.rs", "Cargo.toml"]
 notification_url = "{{ notification_origin }}/{{ notification_topic }}"
 log_level = "{{ log_level }}"
 log_as_json = "{{ log_as_json }}"
+request_size_limit_in_kb = "{{ request_size_limit_in_kb }}"
 
 [component.task-api.dependencies]
 "spinbook:components@0.1.0" = { path = "./classifier/target/wasm32-wasip2/release/classifier.wasm" }

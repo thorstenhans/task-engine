@@ -5,6 +5,7 @@ pub(crate) struct AppConfig {
     pub log_level: String,
     pub log_as_json: bool,
     pub notification_url: String,
+    pub request_size_limit_in_kb: usize,
 }
 
 impl AppConfig {
@@ -16,10 +17,15 @@ impl AppConfig {
             .unwrap_or("true".to_string())
             .parse().unwrap_or(true);
 
+        let request_size_limit_in_kb = variables::get("request_size_limit_in_kb")
+            .await?
+            .parse()?;
+
         Ok(Self {
             log_level,
             log_as_json,
             notification_url,
+            request_size_limit_in_kb,
         })
     }
 }
