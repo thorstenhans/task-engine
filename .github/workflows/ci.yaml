@@ -1,26 +1,61 @@
-name: "CI"
+
+name: "CI Task-Engine"
 on:
   push:
     branches:
       - "main"
 env:
   RUST_VERSION: "1.98.1"
-  SPIN_VERSION: ""
+  RUST_TARGET: "wasm32-wasip2"
 jobs:
   spin:
     runs-on: "ubuntu-latest"
     name: Build Spin App
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Install trivy
+        uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
+      - name: Install ORAS
+        uses: oras-project/setup-oras@v1
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "${{ env.RUST_VERSION }}"
-          targets: wasm32-wasip2
+          targets: "${{ env.RUST_TARGET }}"
       - name: Install Spin
         uses: fermyon/actions/spin/setup@v1
         with:
-          plugins: 
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build task-engine
         run: spin build
         working-directory: .
+      - name: Generate SBOM for task-engine
+        working-directory: .
+        run: |
+          trivy fs --format spdx-json -o sbom.spdx.json .
+      - name: Scan task-engine SBOM for Critical Vulnerabilities
+        working-directory: .
+        run: |
+          trivy sbom --exit-code 1 --severity HIGH,CRITICAL sbom.spdx.json
+      - name: Authenticate against OCI registry for task-engine
+        run: |
+          spin registry login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ghcr.io
+          docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ghcr.io
+      - name: Push OCI Artifact for task-engine
+        working-directory: .
+        run: |
+          spin registry push ghcr.io/thorstenhans/task-engine:${{ github.sha }}
+      - name: Sign OCI Artifact for task-engine
+        working-directory: .
+        run: |
+          cosign sign --yes ghcr.io/thorstenhans/task-engine:${{ github.sha }}
+      - name: Attach task-engine SBOM via ORAS
+        working-directory: .
+        run: |
+          oras attach --artifact-type application/spdx+json ghcr.io/thorstenhans/task-engine:${{ github.sha }} sbom.spdx.json
