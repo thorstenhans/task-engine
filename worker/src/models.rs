@@ -35,6 +35,12 @@ pub(crate) mod domain {
     }
 
     impl Report {
+        pub fn reset_for_run(&mut self) {
+            self.open = 0;
+            self.total = self.done;
+            self.tasks_archived_during_this_run.clear();
+        }
+
         pub fn increment_open(&mut self) {
             self.open += 1;
             self.total += 1;

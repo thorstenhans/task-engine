@@ -50,6 +50,8 @@ async fn cleanup_and_generate_report() -> anyhow::Result<domain::Report> {
         .unwrap_or_default()
         .unwrap_or_default();
 
+    report.reset_for_run();
+
     let all_keys: Vec<String> = store.get_keys().await.collect().await?;
     let task_keys = all_keys
         .into_iter()
