@@ -15,11 +15,10 @@ impl AppConfig {
         let log_as_json: bool = variables::get("log_as_json")
             .await
             .unwrap_or("true".to_string())
-            .parse().unwrap_or(true);
+            .parse()
+            .unwrap_or(true);
 
-        let request_size_limit_in_kb = variables::get("request_size_limit_in_kb")
-            .await?
-            .parse()?;
+        let request_size_limit_in_kb = variables::get("request_size_limit_in_kb").await?.parse()?;
 
         Ok(Self {
             log_level,

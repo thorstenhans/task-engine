@@ -1,0 +1,16 @@
+apiVersion: core.spinkube.dev/v1alpha1
+kind: SpinApp
+metadata:
+  name: task-engine
+spec:
+  image: "thorstenhans/task-engine:0.0.2"
+  executor: containerd-shim-spin
+  replicas: 1
+  variables:
+    - name: worker_token
+      valueFrom:
+        secretKeyRef:
+          name: task-engine-secrets
+          key: worker-token
+  runtimeConfig:
+    loadFromSecret: task-engine-runtime-config

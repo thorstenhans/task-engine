@@ -156,7 +156,7 @@ mod mocks {
 
         async fn delete_task_by_id(&mut self, id: Uuid) -> anyhow::Result<()> {
             let key = get_task_key(&id);
-            let _ = self.store.remove(&key);
+            self.store.remove(&key);
             Ok(())
         }
     }

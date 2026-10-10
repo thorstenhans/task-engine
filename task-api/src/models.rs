@@ -1,16 +1,16 @@
 pub(crate) mod api {
-    use serde::{Deserialize, Serialize};
     use garde::Validate;
+    use serde::{Deserialize, Serialize};
 
-   #[derive(Deserialize, Serialize, Validate)]
-   pub(crate) struct CreateTask {
-        #[garde(length(min=3, max=100))]
+    #[derive(Deserialize, Serialize, Validate)]
+    pub(crate) struct CreateTask {
+        #[garde(length(min = 3, max = 100))]
         pub title: String,
     }
 
     #[derive(Deserialize, Validate)]
     pub(crate) struct UpdateTask {
-        #[garde(length(min=3, max=100))]
+        #[garde(length(min = 3, max = 100))]
         pub title: Option<String>,
         #[garde(skip)]
         pub status: Option<Status>,
@@ -56,10 +56,11 @@ pub(crate) mod domain {
     }
     impl Notification {
         pub fn get_title(&self) -> String {
-            match self {
-                Notification::TaskCreated(_) => String::from("New Task Added!"),
-                Notification::TaskCompleted(_) => String::from("Task Completed!"),
-            }
+            (match self {
+                Self::TaskCreated(_) => "New Task Added!",
+                Self::TaskCompleted(_) => "Task Completed!",
+            })
+            .to_string()
         }
         pub fn get_contents(&self) -> String {
             match self {

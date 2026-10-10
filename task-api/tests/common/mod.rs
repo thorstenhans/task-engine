@@ -71,7 +71,7 @@ impl SpinTestBed {
             }
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
-        panic!("app did not become ready in time");
+        panic!("app not ready in time");
     }
 }
 

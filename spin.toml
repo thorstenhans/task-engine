@@ -2,7 +2,7 @@ spin_manifest_version = 2
 
 [application]
 name = "task-engine"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Thorsten Hans <thorsten.hans@gmail.com>"]
 description = ""
 
